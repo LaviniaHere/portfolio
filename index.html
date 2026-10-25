@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lavinia · AI 影像作品集</title>
+<meta name="description" content="Lavinia 的 AI 影像作品集，需要访问密码。">
+<meta name="robots" content="noindex, nofollow, noimageai, noai">
+<meta name="theme-color" content="#FAF7F5">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-in">
+    <p class="kicker">AI Filmmaker · AIGC Visual Artist</p>
+    <h1 class="gate-name">Lavinia</h1>
+    <p class="gate-sub">AI 影像作品集<br>仅向受邀的面试官与合作方开放，请输入访问密码。</p>
+    <form class="gate-form" id="lock" autocomplete="off">
+      <label class="sr" for="pw">访问密码</label>
+      <div class="lock-row">
+        <input id="pw" type="password" placeholder="访问密码" required autofocus>
+        <button class="btn" type="submit" id="unlock">进入作品集</button>
+      </div>
+      <p class="lock-msg" id="lock-msg" role="status"></p>
+    </form>
+    <p class="gate-foot">没有密码？请通过投递或合作渠道联系我获取。</p>
+  </div>
+</div>
+
+<div id="app" hidden></div>
+
+<div class="lb" id="lb" hidden>
+  <button class="lb-x" id="lb-x" aria-label="关闭">×</button>
+  <button class="lb-nav lb-prev" id="lb-prev" aria-label="上一张">‹</button>
+  <div class="lb-stage" id="lb-stage"></div>
+  <button class="lb-nav lb-next" id="lb-next" aria-label="下一张">›</button>
+  <p class="lb-cap" id="lb-cap"></p>
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
