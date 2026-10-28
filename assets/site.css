@@ -224,12 +224,13 @@ a.tile:hover .ph img { transform: scale(1.03); }
 .gate-in { position: relative; width: min(520px, 100%); display: grid; gap: 14px; text-align: left; }
 .gate-name { font-family: var(--f-latin); font-style: italic; font-weight: 400; font-size: clamp(72px, 14vw, 128px); line-height: .95; }
 .gate-sub { color: var(--ink-2); font-size: 15.5px; margin-top: 6px; }
+.gate-for { justify-self: start; font-size: 13px; letter-spacing: .04em; color: var(--rose-ink); background: var(--rose-2); padding: 4px 12px; border-radius: 999px; margin-top: 4px; }
 .gate-form { margin-top: 18px; display: grid; gap: 10px; }
 .gate .lock-row { display: flex; gap: 10px; }
 .gate input { flex: 1; min-width: 0; padding: 13px 18px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; }
 .gate input:focus { outline: 2px solid var(--rose); outline-offset: 1px; }
 .gate .lock-msg { color: var(--rose-ink); font-size: 13.5px; min-height: 1.4em; }
-.gate-foot { font-size: 13px; color: var(--muted); }
+.gate-foot { font-size: 12.5px; color: var(--muted); line-height: 1.8; }
 @media (max-width: 600px) { .gate .lock-row { flex-direction: column; } }
 
 /* 打印时不印作品图 */

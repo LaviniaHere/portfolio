@@ -6,6 +6,38 @@
   let key = null, man = null;
   const cache = new Map();
 
+  /* ---------- 专属链接与访问统计 ---------- */
+  // 专属链接：网址后面加 ?for=公司名，访问记录和试稿水印里都会带上这个名字
+  const who = (() => {
+    try {
+      const v = new URLSearchParams(location.search).get('for') || '';
+      return v.replace(/[<>"'&\u0000-\u001f]/g, '').trim().slice(0, 30);
+    } catch { return ''; }
+  })();
+  const CFG = window.LAVINIA_CONFIG || {};
+  if (CFG.umamiId) {
+    const s = document.createElement('script');
+    s.defer = true; s.src = CFG.umamiSrc; s.dataset.websiteId = CFG.umamiId;
+    document.head.append(s);
+  }
+  function track(name, data = {}) {
+    try { if (window.umami && typeof umami.track === 'function') umami.track(name, { 来源: who || '未标记', ...data }); } catch {}
+  }
+  // 停留时长：只计页面在前台的时间
+  let shownAt = 0, activeMs = 0, unlocked = false;
+  const seen = new Set();
+  const flushTime = () => { if (shownAt) { activeMs += performance.now() - shownAt; shownAt = 0; } };
+  function report() {
+    if (!unlocked) return;
+    flushTime();
+    track('离开', { 停留秒数: Math.round(activeMs / 1000), 看过: [...seen].join('、') || '只看了开头' });
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') report();
+    else if (unlocked) shownAt = performance.now();
+  });
+  addEventListener('pagehide', report);
+
   /* ---------- 解密 ---------- */
   async function deriveKey(pw) {
     const meta = await (await fetch('data/meta.json', { cache: 'no-store' })).json();
@@ -46,8 +78,7 @@
     $('#lb-prev').hidden = $('#lb-next').hidden = list.length < 2;
     if (it.bitmap) {
       const c = document.createElement('canvas');
-      c.width = it.bitmap.width; c.height = it.bitmap.height;
-      c.getContext('2d').drawImage(it.bitmap, 0, 0);
+      drawMark(c, it.bitmap);
       stage.append(c);
     } else {
       const d = document.createElement('div');
@@ -57,6 +88,7 @@
     }
   }
   function openLB(items, i = 0) {
+    track('看大图', { 作品: (items[i] && items[i].caption) || '' });
     list = items; idx = i; lastFocus = document.activeElement;
     lb.hidden = false; document.body.style.overflow = 'hidden';
     show(); $('#lb-x').focus();
@@ -91,10 +123,22 @@
     const nav = $('.nav', app);
     const onScroll = () => nav.classList.toggle('scrolled', scrollY > 8);
     addEventListener('scroll', onScroll, { passive: true }); onScroll();
-    $('#relock', app).addEventListener('click', () => location.reload());
+    $('#relock', app).addEventListener('click', () => {
+      try { sessionStorage.removeItem('lv-pw'); } catch {}
+      location.reload();
+    });
+
+    // 记录看过哪些部分
+    const sio = new IntersectionObserver((ents) => ents.forEach((en) => {
+      if (!en.isIntersecting) return;
+      const n = en.target.dataset.track;
+      if (!seen.has(n)) { seen.add(n); track('看到', { 部分: n }); }
+    }), { threshold: 0.35 });
+    $$('[data-track]', app).forEach((el) => sio.observe(el));
 
     // B站播放器（IVORA）
     $$('.video[data-bvid]', app).forEach((box) => $('.play', box).addEventListener('click', () => {
+      track('播放视频', { 视频: 'IVORA（B站）' });
       const f = document.createElement('iframe');
       f.src = `https://player.bilibili.com/player.html?bvid=${box.dataset.bvid}&autoplay=1&high_quality=1&danmaku=0`;
       f.allow = 'autoplay; fullscreen'; f.allowFullscreen = true; f.title = '视频播放器';
@@ -102,6 +146,7 @@
     }));
     // 自己的加密视频：点了才解密
     $$('.video[data-video]', app).forEach((box) => $('.play', box).addEventListener('click', async () => {
+      track('播放视频', { 视频: box.dataset.video.replace('media/', '') });
       const sp = $('.play span', box); sp.textContent = '加载中…';
       const v = document.createElement('video');
       Object.assign(v, { controls: true, autoplay: true, playsInline: true, disablePictureInPicture: true });
@@ -154,8 +199,21 @@
     g.drawImage(bmp, 0, 0);
     const s = Math.max(12, bmp.width / 60);
     g.font = `${s}px sans-serif`;
-    g.fillStyle = 'rgba(255,255,255,.55)';
-    g.fillText(`仅供审阅 · ${new Date().toISOString().slice(0, 10)}`, s, bmp.height - s);
+    if (who) {
+      // 专属链接：整张斜铺「仅供 某某 审阅」，图被传出去也能看出是从哪里流出的
+      const t = `仅供 ${who} 审阅`;
+      g.save();
+      g.fillStyle = 'rgba(255,255,255,.13)';
+      g.translate(bmp.width / 2, bmp.height / 2);
+      g.rotate(-0.38);
+      const w = g.measureText(t).width + s * 6;
+      for (let y = -bmp.height; y < bmp.height; y += s * 7) {
+        for (let x = -bmp.width - ((y / (s * 7)) % 2) * w / 2; x < bmp.width; x += w) g.fillText(t, x, y);
+      }
+      g.restore();
+    }
+    g.fillStyle = 'rgba(255,255,255,.6)';
+    g.fillText(`仅供${who ? ' ' + who + ' ' : ''}审阅 · ${new Date().toISOString().slice(0, 10)}`, s, bmp.height - s);
   }
   function renderVault(out, groups) {
     groups.forEach((g) => {
@@ -212,12 +270,14 @@
 
   /* ---------- 门面页 ---------- */
   const form = $('#lock'), msg = $('#lock-msg'), btn = $('#unlock');
+  if (who) { const gf = $('#gate-for'); gf.textContent = `这份作品集为「${who}」准备`; gf.hidden = false; }
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!window.crypto || !crypto.subtle) { msg.textContent = '请用 https 地址打开本页。'; return; }
     btn.disabled = true; msg.textContent = '正在验证…';
+    const pw = $('#pw').value;
     try {
-      key = await deriveKey($('#pw').value);
+      key = await deriveKey(pw);
       man = JSON.parse(new TextDecoder().decode(await dec('manifest')));
       const html = new TextDecoder().decode(await dec(man.page));
       const app = $('#app');
@@ -228,9 +288,21 @@
       initPage(app);
       renderVault($('#vault-out', app), man.groups);
       if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+      // 同一个标签页里刷新不用重新输密码，关掉标签页就失效
+      try { sessionStorage.setItem('lv-pw', pw); } catch {}
+      unlocked = true; shownAt = performance.now();
+      track('解锁');
     } catch (err) {
       key = null; man = null;
-      msg.textContent = err && err.name === 'OperationError' ? '密码不对，请再试一次。' : '加载失败，请检查网络后重试。';
+      const wrong = err && err.name === 'OperationError';
+      msg.textContent = wrong ? '密码不对，请再试一次。' : '加载失败，请检查网络后重试。';
+      if (wrong) { track('密码错误'); try { sessionStorage.removeItem('lv-pw'); } catch {} }
     } finally { btn.disabled = false; }
   });
+
+  // 刚才在这个标签页解锁过，就自动进入
+  try {
+    const saved = sessionStorage.getItem('lv-pw');
+    if (saved) { $('#pw').value = saved; form.requestSubmit(); }
+  } catch {}
 })();
