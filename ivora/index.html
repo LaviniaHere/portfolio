@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>IVORA · Lavinia 美妆案例</title>
+<meta name="description" content="IVORA 原创概念唇釉品牌案例，需要访问密码。">
+<meta name="robots" content="noindex, nofollow, noimageai, noai">
+<meta name="theme-color" content="#F7F1EC">
+<link rel="stylesheet" href="assets/ivora.css">
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-in">
+    <p class="en">Concept Brand · Lip Glaze</p>
+    <h1 class="gate-name">IVORA</h1>
+    <p class="gate-tag">Soft Radiance, Naturally Yours.</p>
+    <p class="gate-sub">Lavinia 美妆品牌案例<br>仅向受邀的面试官与合作方开放，请输入访问密码。</p>
+    <form class="gate-form" id="lock" autocomplete="off">
+      <label class="sr" for="pw">访问密码</label>
+      <div class="lock-row">
+        <input id="pw" type="password" placeholder="访问密码" required autofocus>
+        <button class="btn" type="submit" id="unlock">进入</button>
+      </div>
+      <p class="lock-msg" id="lock-msg" role="status"></p>
+    </form>
+  </div>
+</div>
+
+<div id="app" hidden></div>
+
+<div class="lb" id="lb" hidden>
+  <button class="lb-x" id="lb-x" aria-label="关闭">×</button>
+  <button class="lb-nav lb-prev" id="lb-prev" aria-label="上一张">‹</button>
+  <div class="lb-stage" id="lb-stage"></div>
+  <button class="lb-nav lb-next" id="lb-next" aria-label="下一张">›</button>
+  <p class="lb-cap" id="lb-cap"></p>
+</div>
+
+<script src="assets/config.js"></script>
+<script src="assets/ivora.js"></script>
+</body>
+</html>
