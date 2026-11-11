@@ -141,7 +141,7 @@
 
     // B站播放器（IVORA）
     $$('.video[data-bvid]', app).forEach((box) => $('.play', box).addEventListener('click', () => {
-      track('播放视频', { 视频: 'IVORA（B站）' });
+      track('播放视频', { 视频: (box.dataset.name || box.dataset.bvid) + '（B站）' });
       const f = document.createElement('iframe');
       f.src = `https://player.bilibili.com/player.html?bvid=${box.dataset.bvid}&autoplay=1&high_quality=1&danmaku=0`;
       f.allow = 'autoplay; fullscreen'; f.allowFullscreen = true; f.title = '视频播放器';
