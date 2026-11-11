@@ -162,6 +162,7 @@
     const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
     $$('.track[data-audio]', app).forEach((li) => {
       const btn = $('.tp', li), bar = $('.bar', li), fill = $('.bar i', li), time = $('time', li);
+      const total = time.textContent;
       let au = null;
       btn.addEventListener('click', async () => {
         if (!au) {
@@ -176,7 +177,7 @@
           });
           au.addEventListener('play', () => { pauseOthers(au); li.classList.add('playing'); });
           au.addEventListener('pause', () => li.classList.remove('playing'));
-          au.addEventListener('ended', () => { au.currentTime = 0; fill.style.width = '0'; time.textContent = '1:00'; });
+          au.addEventListener('ended', () => { au.currentTime = 0; fill.style.width = '0'; time.textContent = total; });
           track('试听', { 歌曲: $('b', li).textContent });
         }
         if (au.paused) au.play().catch(() => {}); else au.pause();
@@ -187,6 +188,19 @@
         au.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * au.duration;
       });
     });
+
+    // 后台预加载：解锁后先把视频和试听悄悄下好、解好，点播放时就能马上放。
+    // 一个接一个地下，不跟图片抢网速；手机开了「省流量」就不预加载。
+    const saveData = navigator.connection && navigator.connection.saveData;
+    if (!saveData) {
+      const media = [
+        ...$$('.video[data-video]', app).map((b) => b.dataset.video),
+        ...$$('.track[data-audio]', app).map((l) => l.dataset.audio),
+      ];
+      setTimeout(async () => {
+        for (const p of media) { try { await url(p); } catch {} }
+      }, 1200);
+    }
 
     // 大图：过程条带、案例主图、更多作品
     $$('.strip', app).forEach((strip) => {
