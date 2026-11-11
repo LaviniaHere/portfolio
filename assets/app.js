@@ -6,13 +6,10 @@
   let key = null, man = null;
   const cache = new Map();
 
-  /* ---------- 专属链接与访问统计 ---------- */
-  // 专属链接：网址后面加 ?for=公司名，访问记录和试稿水印里都会带上这个名字
+  /* ---------- 访问统计 ---------- */
   const who = (() => {
-    try {
-      const v = new URLSearchParams(location.search).get('for') || '';
-      return v.replace(/[<>"'&\u0000-\u001f]/g, '').trim().slice(0, 30);
-    } catch { return ''; }
+    try { return ((new URLSearchParams(location.search).get('s') || '').match(/^[a-z0-9]{4,12}$/) || [''])[0]; }
+    catch { return ''; }
   })();
   const CFG = window.LAVINIA_CONFIG || {};
   if (CFG.umamiId) {
@@ -47,7 +44,7 @@
       { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
   }
   async function dec(id) {
-    const res = await fetch(`data/${id}.bin`, { cache: 'force-cache' });
+    const res = await fetch(`data/${id}.bin`, { cache: id === 'manifest' ? 'no-store' : 'force-cache' });
     if (!res.ok) throw new Error('missing');
     const buf = new Uint8Array(await res.arrayBuffer());
     return crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(0, 12) }, key, buf.slice(12));
@@ -199,9 +196,8 @@
     g.drawImage(bmp, 0, 0);
     const s = Math.max(12, bmp.width / 60);
     g.font = `${s}px sans-serif`;
-    if (who) {
-      // 专属链接：整张斜铺「仅供 某某 审阅」，图被传出去也能看出是从哪里流出的
-      const t = `仅供 ${who} 审阅`;
+    {
+      const t = '仅供作品展示';
       g.save();
       g.fillStyle = 'rgba(255,255,255,.13)';
       g.translate(bmp.width / 2, bmp.height / 2);
@@ -213,7 +209,7 @@
       g.restore();
     }
     g.fillStyle = 'rgba(255,255,255,.6)';
-    g.fillText(`仅供${who ? ' ' + who + ' ' : ''}审阅 · ${new Date().toISOString().slice(0, 10)}`, s, bmp.height - s);
+    g.fillText(`© Lavinia · 仅供作品展示 · ${new Date().toISOString().slice(0, 10)}`, s, bmp.height - s);
   }
   function renderVault(out, groups) {
     groups.forEach((g) => {
@@ -270,7 +266,6 @@
 
   /* ---------- 门面页 ---------- */
   const form = $('#lock'), msg = $('#lock-msg'), btn = $('#unlock');
-  if (who) { const gf = $('#gate-for'); gf.textContent = `这份作品集为「${who}」准备`; gf.hidden = false; }
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!window.crypto || !crypto.subtle) { msg.textContent = '请用 https 地址打开本页。'; return; }
