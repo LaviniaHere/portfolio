@@ -258,6 +258,14 @@ a.tile:hover .ph img { transform: scale(1.03); }
 .gate-foot { font-size: 12.5px; color: var(--muted); line-height: 1.8; }
 @media (max-width: 600px) { .gate .lock-row { flex-direction: column; } }
 
+/* 语言切换 */
+.lang { font: inherit; font-family: var(--f-latin); font-size: 14px; font-weight: 600; letter-spacing: .04em; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; }
+.lang:hover { border-color: var(--rose); color: var(--rose-ink); }
+.lang:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+.nav .lang { margin-left: 4px; }
+.gate-lang { position: absolute; z-index: 2; top: max(20px, env(safe-area-inset-top, 0px)); right: max(20px, env(safe-area-inset-right, 0px)); }
+@media (max-width: 960px) { .nav .lang { margin-left: auto; } .nav-in .lang + .btn { margin-left: 0; } }
+
 /* 角落的小播放器：随机听一首 + 浮动歌词 */
 .mp { position: fixed; z-index: 40; right: max(20px, env(safe-area-inset-right, 0px)); bottom: max(20px, env(safe-area-inset-bottom, 0px)); display: flex; justify-content: flex-end; }
 .mp-fab { display: inline-flex; align-items: center; gap: 10px; padding: 8px 18px 8px 8px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, .9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(70, 35, 50, .14); cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); transition: transform .2s; }
@@ -278,6 +286,7 @@ a.tile:hover .ph img { transform: scale(1.03); }
 .mp-line { font-family: "Cormorant", var(--f-cn); font-size: 20px; line-height: 1.35; color: var(--ink); }
 .mp-line.in { animation: mpLine .5s ease; }
 .mp-next { font-family: "Cormorant", var(--f-cn); font-size: 14.5px; color: var(--muted); margin-top: 4px; min-height: 1.3em; }
+.mp-next.tr { color: var(--ink-2); font-size: 14px; }
 .mp-ctl { display: flex; align-items: center; gap: 12px; }
 .mp-pp { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 0; background: var(--ink); cursor: pointer; display: grid; place-items: center; padding: 0; }
 .mp-pp::before { content: ""; width: 10px; height: 12px; background: linear-gradient(90deg, #fff 0 35%, transparent 35% 65%, #fff 65%); }

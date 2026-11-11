@@ -6,6 +6,90 @@
   let key = null, man = null;
   const cache = new Map();
 
+  /* ---------- 语言：默认中文，可切换英文 ---------- */
+  // 记在本机（localStorage），下次打开还是上次选的；网址加 ?lang=en 可以直接打开英文版。
+  const T = {
+    zh: {
+      https: '请用 https 地址打开本页。', checking: '正在验证…', wrong: '密码不对，请再试一次。',
+      fail: '加载失败，请检查网络后重试。', loading: '加载中…', decrypting: '解密中…', loadPlay: '加载并播放',
+      copied: '已复制', selectCopy: '已选中，按 Ctrl+C', copy: '复制', player: '视频播放器',
+      fab: '随机听一首', fabAria: '随机播放一首我的歌', nowPlaying: '正在播放', close: '收起播放器',
+      play: '播放', pause: '暂停', next: '换一首', mark: '仅供作品展示',
+      g: {
+        echo: ['STARLINE ECHO 主视觉', '海报', '系列排版'], snow: ['月下雪兔 · 全配列', '雪兔元素', '空格键方案'],
+        lumina: ['LuminaOS 2.03 · 像素偶像桌面样机'], album: ['专辑《Things That Stay》封面'], sprite: ['粉蓝小精灵'],
+      },
+      gate: {
+        sub: 'AI 影像作品集<br>仅向受邀的面试官与合作方开放，请输入访问密码。', label: '访问密码', ph: '访问密码',
+        btn: '进入作品集', foot: '没有密码？请通过投递或合作渠道联系我获取。',
+      },
+    },
+    en: {
+      https: 'Please open this page over https.', checking: 'Checking…', wrong: "That password didn't work. Please try again.",
+      fail: "Couldn't load. Please check your connection and try again.", loading: 'Loading…', decrypting: 'Decrypting…',
+      loadPlay: 'Load & play', copied: 'Copied', selectCopy: 'Selected, press Ctrl+C', copy: 'Copy', player: 'Video player',
+      fab: 'Play a song', fabAria: 'Play a random song of mine', nowPlaying: 'Now playing', close: 'Close player',
+      play: 'Play', pause: 'Pause', next: 'Next song', mark: 'For portfolio review only',
+      g: {
+        echo: ['STARLINE ECHO key visual', 'Poster', 'Series layout'], snow: ['Snow Rabbit · full set', 'Snow-rabbit motifs', 'Spacebar options'],
+        lumina: ['LuminaOS 2.03 · pixel idol desktop prototype'], album: ['Things That Stay album cover'], sprite: ['Pink & Blue Sprites'],
+      },
+      gate: {
+        sub: 'AI film portfolio<br>Open to invited interviewers and collaborators. Please enter the access password.',
+        label: 'Access password', ph: 'Access password', btn: 'Enter portfolio',
+        foot: "Don't have a password? Please ask me through the channel where we're in touch.",
+      },
+    },
+  };
+  let lang = (() => {
+    try {
+      const q = new URLSearchParams(location.search).get('lang');
+      if (q === 'en' || q === 'zh') return q;
+      return localStorage.getItem('lv-lang') === 'en' ? 'en' : 'zh';
+    } catch { return 'zh'; }
+  })();
+  const t = (k) => T[lang][k];
+  function applyGate() {
+    document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+    document.title = lang === 'en' ? 'Lavinia · AI Film Portfolio' : 'Lavinia · AI 影像作品集';
+    $$('#gate [data-t]').forEach((el) => { el.innerHTML = T[lang].gate[el.dataset.t]; });
+    $$('#gate [data-t-ph]').forEach((el) => { el.placeholder = T[lang].gate[el.dataset.tPh]; });
+    const gl = $('.gate-lang');
+    gl.textContent = lang === 'en' ? '中文' : 'EN';
+    gl.dataset.to = lang === 'en' ? 'zh' : 'en';
+    gl.setAttribute('aria-label', lang === 'en' ? '切换到中文' : 'Switch to English');
+  }
+  // 两种语言的内容页，解密一次后缓存
+  const pages = {};
+  async function pageHTML(l) {
+    const id = l === 'en' && man.pageEn ? man.pageEn : man.page;
+    if (!pages[id]) pages[id] = new TextDecoder().decode(await dec(id));
+    return pages[id];
+  }
+  async function renderApp(keepScroll) {
+    const y = scrollY;
+    songs.forEach((a) => a.pause());
+    songs.clear();
+    $$('.mp').forEach((m) => m.remove());
+    const app = $('#app');
+    app.innerHTML = await pageHTML(lang);
+    initPage(app);
+    renderVault($('#vault-out', app), man.groups);
+    if (keepScroll) scrollTo(0, y);
+  }
+  async function setLang(l) {
+    if (l === lang) return;
+    lang = l;
+    try { localStorage.setItem('lv-lang', l); } catch {}
+    applyGate();
+    track('切换语言', { 语言: l === 'en' ? '英文' : '中文' });
+    if (man) await renderApp(true);
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.lang');
+    if (b) setLang(b.dataset.to);
+  });
+
   /* ---------- 访问统计 ---------- */
   const who = (() => {
     try { return ((new URLSearchParams(location.search).get('s') || '').match(/^[a-z0-9]{4,12}$/) || [''])[0]; }
@@ -144,13 +228,13 @@
       track('播放视频', { 视频: (box.dataset.name || box.dataset.bvid) + '（B站）' });
       const f = document.createElement('iframe');
       f.src = `https://player.bilibili.com/player.html?bvid=${box.dataset.bvid}&autoplay=1&high_quality=1&danmaku=0`;
-      f.allow = 'autoplay; fullscreen'; f.allowFullscreen = true; f.title = '视频播放器';
+      f.allow = 'autoplay; fullscreen'; f.allowFullscreen = true; f.title = t('player');
       box.replaceChildren(f);
     }));
     // 自己的加密视频：点了才解密
     $$('.video[data-video]', app).forEach((box) => $('.play', box).addEventListener('click', async () => {
       track('播放视频', { 视频: box.dataset.video.replace('media/', '') });
-      const sp = $('.play span', box); sp.textContent = '加载中…';
+      const sp = $('.play span', box); sp.textContent = t('loading');
       const v = document.createElement('video');
       Object.assign(v, { controls: true, autoplay: true, playsInline: true, disablePictureInPicture: true });
       v.setAttribute('controlslist', 'nodownload noplaybackrate');
@@ -189,25 +273,23 @@
       ph.addEventListener('click', () => openLB([{ path: $('img', ph).dataset.src, caption: $('img', ph).alt }]));
     });
     const G = {
-      echo: [['echo-1', 'STARLINE ECHO 主视觉'], ['echo-2', '海报'], ['echo-3', '系列排版']],
-      snow: [['snow-full', '月下雪兔 · 全配列'], ['snow-stick', '雪兔元素'], ['snow-space', '空格键方案']],
-      lumina: [['lumina', 'LuminaOS 2.03 · 像素偶像桌面样机']],
-      album: [['album', '专辑《Things That Stay》封面']],
-      sprite: [['sprite', '粉蓝小精灵']],
+      echo: ['echo-1', 'echo-2', 'echo-3'], snow: ['snow-full', 'snow-stick', 'snow-space'],
+      lumina: ['lumina'], album: ['album'], sprite: ['sprite'],
     };
     $$('[data-gallery]', app).forEach((a) => a.addEventListener('click', (e) => {
       e.preventDefault();
-      openLB(G[a.dataset.gallery].map(([n, c]) => ({ path: `img/${n}.webp`, caption: c })));
+      const k = a.dataset.gallery;
+      openLB(G[k].map((n, i) => ({ path: `img/${n}.webp`, caption: t('g')[k][i] })));
     }));
 
     // 复制联系方式
     $$('.copy', app).forEach((b) => b.addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = '已复制'; }
+      try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = b.dataset.done || t('copied'); }
       catch {
         const r = document.createRange(); r.selectNodeContents(b.parentNode.querySelector('.sel'));
-        getSelection().removeAllRanges(); getSelection().addRange(r); b.textContent = '已选中，按 Ctrl+C';
+        getSelection().removeAllRanges(); getSelection().addRange(r); b.textContent = t('selectCopy');
       }
-      setTimeout(() => { b.textContent = '复制'; }, 1800);
+      setTimeout(() => { b.textContent = t('copy'); }, 1800);
     }));
   }
 
@@ -232,11 +314,11 @@
     mp.className = 'mp paused';
     mp.dataset.state = 'idle';
     mp.innerHTML = `
-      <button class="mp-fab" type="button" aria-label="随机播放一首我的歌"><span class="mp-note" aria-hidden="true"></span><span>随机听一首</span></button>
-      <div class="mp-card" role="region" aria-label="正在播放">
-        <div class="mp-top"><span class="mp-eq" aria-hidden="true"><i></i><i></i><i></i></span><span class="mp-title"></span><button class="mp-x" type="button" aria-label="收起播放器">×</button></div>
+      <button class="mp-fab" type="button" aria-label="${t('fabAria')}"><span class="mp-note" aria-hidden="true"></span><span>${t('fab')}</span></button>
+      <div class="mp-card" role="region" aria-label="${t('nowPlaying')}">
+        <div class="mp-top"><span class="mp-eq" aria-hidden="true"><i></i><i></i><i></i></span><span class="mp-title"></span><button class="mp-x" type="button" aria-label="${t('close')}">×</button></div>
         <div class="mp-lyr"><p class="mp-line"></p><p class="mp-next"></p></div>
-        <div class="mp-ctl"><button class="mp-pp" type="button" aria-label="播放"></button><i class="mp-bar"><i></i></i><button class="mp-shuf" type="button">换一首</button></div>
+        <div class="mp-ctl"><button class="mp-pp" type="button" aria-label="${t('play')}"></button><i class="mp-bar"><i></i></i><button class="mp-shuf" type="button">${t('next')}</button></div>
       </div>`;
     document.body.append(mp);
     const $m = (s) => $(s, mp);
@@ -244,9 +326,9 @@
     function setLine(force) {
       const L = cur && lyr && lyr[cur.id];
       if (!L || !L.lines.length) { if (force) { $m('.mp-line').textContent = '♪'; $m('.mp-next').textContent = ''; } return; }
-      const t = L.offset + au.currentTime + 0.15;
+      const tt = L.offset + au.currentTime + 0.15;
       let i = -1;
-      for (let k = 0; k < L.lines.length && L.lines[k][0] <= t; k++) i = k;
+      for (let k = 0; k < L.lines.length && L.lines[k][0] <= tt; k++) i = k;
       if (i === at && !force) return;
       at = i;
       const line = $m('.mp-line');
@@ -254,7 +336,18 @@
       void line.offsetWidth; // 重新触发淡入动画
       line.textContent = i >= 0 ? (L.lines[i][1] || '♪') : '♪';
       line.classList.add('in');
-      $m('.mp-next').textContent = (L.lines[i + 1] && L.lines[i + 1][1]) || '';
+      // 有翻译就在下面显示翻译（中文版看英文歌的中文翻译，英文版看中文歌的英文翻译），没有就显示下一句
+      const tr = L.tr && L.tr[lang === 'en' ? 'en' : 'zh'];
+      const sub = $m('.mp-next');
+      if (tr && tr.length) {
+        let j = -1;
+        for (let k = 0; k < tr.length && tr[k][0] <= tt; k++) j = k;
+        sub.textContent = j >= 0 ? tr[j][1] : '';
+        sub.classList.add('tr');
+      } else {
+        sub.textContent = (L.lines[i + 1] && L.lines[i + 1][1]) || '';
+        sub.classList.remove('tr');
+      }
     }
     function sync() {
       list.forEach((s) => {
@@ -262,7 +355,7 @@
         if (s !== cur) { $('.bar i', s.li).style.width = '0'; $('time', s.li).textContent = s.total; }
       });
       mp.classList.toggle('paused', au.paused);
-      $m('.mp-pp').setAttribute('aria-label', au.paused ? '播放' : '暂停');
+      $m('.mp-pp').setAttribute('aria-label', au.paused ? t('play') : t('pause'));
     }
     async function play(s, how) {
       mode = how;
@@ -330,7 +423,7 @@
     const s = Math.max(12, bmp.width / 60);
     g.font = `${s}px sans-serif`;
     {
-      const t = '仅供作品展示';
+      const t = T[lang].mark;
       g.save();
       g.fillStyle = 'rgba(255,255,255,.13)';
       g.translate(bmp.width / 2, bmp.height / 2);
@@ -342,28 +435,30 @@
       g.restore();
     }
     g.fillStyle = 'rgba(255,255,255,.6)';
-    g.fillText(`© Lavinia · 仅供作品展示 · ${new Date().toISOString().slice(0, 10)}`, s, bmp.height - s);
+    g.fillText(`© Lavinia · ${T[lang].mark} · ${new Date().toISOString().slice(0, 10)}`, s, bmp.height - s);
   }
   function renderVault(out, groups) {
     groups.forEach((g) => {
       const sec = document.createElement('section');
       sec.className = 'vg';
       sec.innerHTML = '<div class="vg-head"><h3></h3><p></p></div><div class="vg-grid"></div>';
-      $('h3', sec).textContent = g.group;
-      $('p', sec).textContent = g.note;
+      const en = lang === 'en';
+      $('h3', sec).textContent = (en && g.group_en) || g.group;
+      $('p', sec).textContent = (en && g.note_en) || g.note;
       const grid = $('.vg-grid', sec);
       const pics = [];
       g.items.forEach((it) => {
         const box = document.createElement('div');
         box.className = 'vg-item' + (it.kind === 'video' ? ' v' : '');
         box.innerHTML = '<div class="frame"></div><span></span>';
-        $('span', box).textContent = it.caption;
+        const caption = (en && it.caption_en) || it.caption;
+        $('span', box).textContent = caption;
         const frame = $('.frame', box);
         if (it.kind === 'image') {
           frame.classList.add('loading');
           const c = document.createElement('canvas');
           frame.append(c);
-          const entry = { caption: it.caption, bitmap: null };
+          const entry = { caption, bitmap: null };
           pics.push(entry);
           const io = new IntersectionObserver(([en]) => {
             if (!en.isIntersecting) return;
@@ -380,10 +475,10 @@
         } else {
           const b = document.createElement('button');
           b.className = 'play';
-          b.innerHTML = '<span>加载并播放</span>';
+          b.innerHTML = `<span>${t('loadPlay')}</span>`;
           frame.append(b);
           b.addEventListener('click', async () => {
-            $('span', b).textContent = '解密中…';
+            $('span', b).textContent = t('decrypting');
             const u = URL.createObjectURL(new Blob([await dec(it.id)], { type: it.mime }));
             const v = document.createElement('video');
             Object.assign(v, { src: u, controls: true, autoplay: true, playsInline: true, disablePictureInPicture: true });
@@ -401,20 +496,16 @@
   const form = $('#lock'), msg = $('#lock-msg'), btn = $('#unlock');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!window.crypto || !crypto.subtle) { msg.textContent = '请用 https 地址打开本页。'; return; }
-    btn.disabled = true; msg.textContent = '正在验证…';
+    if (!window.crypto || !crypto.subtle) { msg.textContent = t('https'); return; }
+    btn.disabled = true; msg.textContent = t('checking');
     const pw = $('#pw').value;
     try {
       key = await deriveKey(pw);
       man = JSON.parse(new TextDecoder().decode(await dec('manifest')));
-      const html = new TextDecoder().decode(await dec(man.page));
-      const app = $('#app');
-      app.innerHTML = html;
+      await renderApp(false);
       $('#gate').hidden = true;
-      app.hidden = false;
+      $('#app').hidden = false;
       document.body.classList.add('open');
-      initPage(app);
-      renderVault($('#vault-out', app), man.groups);
       if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
       // 同一个标签页里刷新不用重新输密码，关掉标签页就失效
       try { sessionStorage.setItem('lv-pw', pw); } catch {}
@@ -423,10 +514,12 @@
     } catch (err) {
       key = null; man = null;
       const wrong = err && err.name === 'OperationError';
-      msg.textContent = wrong ? '密码不对，请再试一次。' : '加载失败，请检查网络后重试。';
+      msg.textContent = wrong ? t('wrong') : t('fail');
       if (wrong) { track('密码错误'); try { sessionStorage.removeItem('lv-pw'); } catch {} }
     } finally { btn.disabled = false; }
   });
+
+  applyGate();
 
   // 刚才在这个标签页解锁过，就自动进入
   try {
