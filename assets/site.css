@@ -258,6 +258,42 @@ a.tile:hover .ph img { transform: scale(1.03); }
 .gate-foot { font-size: 12.5px; color: var(--muted); line-height: 1.8; }
 @media (max-width: 600px) { .gate .lock-row { flex-direction: column; } }
 
+/* 角落的小播放器：随机听一首 + 浮动歌词 */
+.mp { position: fixed; z-index: 40; right: max(20px, env(safe-area-inset-right, 0px)); bottom: max(20px, env(safe-area-inset-bottom, 0px)); display: flex; justify-content: flex-end; }
+.mp-fab { display: inline-flex; align-items: center; gap: 10px; padding: 8px 18px 8px 8px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, .9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(70, 35, 50, .14); cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); transition: transform .2s; }
+.mp-fab:hover { transform: translateY(-2px); }
+.mp-note { width: 30px; height: 30px; border-radius: 50%; background: var(--rose) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3E%3Cpath d='M6 2.5v8.2a2.3 2.3 0 1 0 1.5 2.1V6l5-1.2v4.4a2.3 2.3 0 1 0 1.5 2.1V1z'/%3E%3C/svg%3E") center / 15px no-repeat; }
+.mp-card { display: none; width: min(340px, calc(100vw - 40px)); padding: 14px 16px 14px 18px; border-radius: 18px; border: 1px solid var(--line); background: rgba(255, 255, 255, .92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 16px 40px rgba(70, 35, 50, .18); }
+.mp[data-state="open"] .mp-fab { display: none; }
+.mp[data-state="open"] .mp-card { display: grid; gap: 10px; animation: mpIn .35s ease; }
+.mp-top { display: flex; align-items: center; gap: 10px; }
+.mp-title { flex: 1; min-width: 0; font-family: var(--f-latin); font-style: italic; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-x { all: unset; cursor: pointer; font-size: 22px; line-height: 1; color: var(--muted); padding: 0 4px; }
+.mp-x:focus-visible, .mp-shuf:focus-visible, .mp-pp:focus-visible, .mp-fab:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+.mp-eq { display: flex; gap: 2px; align-items: flex-end; height: 14px; }
+.mp-eq i { width: 3px; height: 100%; border-radius: 2px; background: var(--rose); transform-origin: bottom; animation: mpEq .9s ease-in-out infinite; }
+.mp-eq i:nth-child(2) { animation-delay: -.3s; } .mp-eq i:nth-child(3) { animation-delay: -.6s; }
+.mp.paused .mp-eq i { animation-play-state: paused; transform: scaleY(.3); }
+.mp-lyr { min-height: 66px; }
+.mp-line { font-family: "Cormorant", var(--f-cn); font-size: 20px; line-height: 1.35; color: var(--ink); }
+.mp-line.in { animation: mpLine .5s ease; }
+.mp-next { font-family: "Cormorant", var(--f-cn); font-size: 14.5px; color: var(--muted); margin-top: 4px; min-height: 1.3em; }
+.mp-ctl { display: flex; align-items: center; gap: 12px; }
+.mp-pp { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 0; background: var(--ink); cursor: pointer; display: grid; place-items: center; padding: 0; }
+.mp-pp::before { content: ""; width: 10px; height: 12px; background: linear-gradient(90deg, #fff 0 35%, transparent 35% 65%, #fff 65%); }
+.mp.paused .mp-pp::before { width: 0; height: 0; background: none; border-left: 11px solid #fff; border-top: 7px solid transparent; border-bottom: 7px solid transparent; margin-left: 3px; }
+.mp-bar { flex: 1; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; cursor: pointer; }
+.mp-bar i { display: block; height: 100%; width: 0; background: var(--rose); }
+.mp-shuf { all: unset; cursor: pointer; font-size: 12.5px; color: var(--rose-ink); padding: 4px 11px; border: 1px solid var(--rose-2); border-radius: 999px; white-space: nowrap; }
+@keyframes mpIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes mpLine { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes mpEq { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+@media (max-width: 600px) {
+  .mp { right: 12px; left: 12px; bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
+  .mp-card { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .mp-eq i, .mp-line.in, .mp[data-state="open"] .mp-card { animation: none; } }
+
 /* 打印时不印作品图 */
 @media print { .ph, .video, .vg-grid, .strip, .grid { display: none !important; } }
 

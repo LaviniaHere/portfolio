@@ -158,36 +158,8 @@
       box.replaceChildren(v);
     }));
 
-    // 原创音乐试听
-    const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-    $$('.track[data-audio]', app).forEach((li) => {
-      const btn = $('.tp', li), bar = $('.bar', li), fill = $('.bar i', li), time = $('time', li);
-      const total = time.textContent;
-      let au = null;
-      btn.addEventListener('click', async () => {
-        if (!au) {
-          li.classList.add('loading');
-          au = new Audio();
-          au.src = await url(li.dataset.audio);
-          li.classList.remove('loading');
-          songs.add(au);
-          au.addEventListener('timeupdate', () => {
-            fill.style.width = (au.currentTime / au.duration * 100 || 0) + '%';
-            if (au.duration) time.textContent = fmt(au.duration - au.currentTime);
-          });
-          au.addEventListener('play', () => { pauseOthers(au); li.classList.add('playing'); });
-          au.addEventListener('pause', () => li.classList.remove('playing'));
-          au.addEventListener('ended', () => { au.currentTime = 0; fill.style.width = '0'; time.textContent = total; });
-          track('试听', { 歌曲: $('b', li).textContent });
-        }
-        if (au.paused) au.play().catch(() => {}); else au.pause();
-      });
-      bar.addEventListener('click', (e) => {
-        if (!au || !au.duration) return;
-        const r = bar.getBoundingClientRect();
-        au.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * au.duration;
-      });
-    });
+    // 原创音乐：一个播放器同时管「音乐区的试听」和「角落的随机播放 + 浮动歌词」
+    initPlayer(app);
 
     // 后台预加载：解锁后先把视频和试听悄悄下好、解好，点播放时就能马上放。
     // 一个接一个地下，不跟图片抢网速；手机开了「省流量」就不预加载。
@@ -237,6 +209,117 @@
       }
       setTimeout(() => { b.textContent = '复制'; }, 1800);
     }));
+  }
+
+  /* ---------- 音乐播放器：试听 + 随机播放 + 浮动歌词 ---------- */
+  // 歌词时间是整首歌里的时间；试听片段从 offset 秒开始截，所以当前唱到 = offset + 片段里播到的秒数。
+  function initPlayer(app) {
+    const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    const list = $$('.track[data-audio]', app).map((li) => ({
+      id: li.dataset.audio.replace(/^media\/|\.m4a$/g, ''), path: li.dataset.audio,
+      title: $('b', li).textContent, li, total: $('time', li).textContent,
+    }));
+    if (!list.length) return;
+    const au = new Audio();
+    songs.add(au);
+    let cur = null, mode = 'list', lyr = null, at = -1;
+    const getLyrics = async () => {
+      if (!lyr) { try { lyr = await (await fetch(await url('media/lyrics.json'))).json(); } catch { lyr = {}; } }
+      return lyr;
+    };
+
+    const mp = document.createElement('div');
+    mp.className = 'mp paused';
+    mp.dataset.state = 'idle';
+    mp.innerHTML = `
+      <button class="mp-fab" type="button" aria-label="随机播放一首我的歌"><span class="mp-note" aria-hidden="true"></span><span>随机听一首</span></button>
+      <div class="mp-card" role="region" aria-label="正在播放">
+        <div class="mp-top"><span class="mp-eq" aria-hidden="true"><i></i><i></i><i></i></span><span class="mp-title"></span><button class="mp-x" type="button" aria-label="收起播放器">×</button></div>
+        <div class="mp-lyr"><p class="mp-line"></p><p class="mp-next"></p></div>
+        <div class="mp-ctl"><button class="mp-pp" type="button" aria-label="播放"></button><i class="mp-bar"><i></i></i><button class="mp-shuf" type="button">换一首</button></div>
+      </div>`;
+    document.body.append(mp);
+    const $m = (s) => $(s, mp);
+
+    function setLine(force) {
+      const L = cur && lyr && lyr[cur.id];
+      if (!L || !L.lines.length) { if (force) { $m('.mp-line').textContent = '♪'; $m('.mp-next').textContent = ''; } return; }
+      const t = L.offset + au.currentTime + 0.15;
+      let i = -1;
+      for (let k = 0; k < L.lines.length && L.lines[k][0] <= t; k++) i = k;
+      if (i === at && !force) return;
+      at = i;
+      const line = $m('.mp-line');
+      line.classList.remove('in');
+      void line.offsetWidth; // 重新触发淡入动画
+      line.textContent = i >= 0 ? (L.lines[i][1] || '♪') : '♪';
+      line.classList.add('in');
+      $m('.mp-next').textContent = (L.lines[i + 1] && L.lines[i + 1][1]) || '';
+    }
+    function sync() {
+      list.forEach((s) => {
+        s.li.classList.toggle('playing', s === cur && !au.paused);
+        if (s !== cur) { $('.bar i', s.li).style.width = '0'; $('time', s.li).textContent = s.total; }
+      });
+      mp.classList.toggle('paused', au.paused);
+      $m('.mp-pp').setAttribute('aria-label', au.paused ? '播放' : '暂停');
+    }
+    async function play(s, how) {
+      mode = how;
+      mp.dataset.state = 'open';
+      if (cur === s) { if (au.paused) au.play().catch(() => {}); else au.pause(); return; }
+      cur = s; at = -1;
+      s.li.classList.add('loading');
+      $m('.mp-title').textContent = s.title;
+      $m('.mp-line').textContent = '…';
+      $m('.mp-next').textContent = '';
+      const [src] = await Promise.all([url(s.path), getLyrics()]);
+      s.li.classList.remove('loading');
+      if (cur !== s) return; // 等待期间又换了歌
+      au.src = src;
+      setLine(true);
+      au.play().catch(() => {});
+      track(how === 'shuffle' ? '随机播放' : '试听', { 歌曲: s.title });
+    }
+    const shuffle = () => {
+      const pool = list.filter((s) => s !== cur);
+      play(pool[Math.floor(Math.random() * pool.length)], 'shuffle');
+    };
+    const seek = (e, bar) => {
+      if (!au.duration) return;
+      const r = bar.getBoundingClientRect();
+      au.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * au.duration;
+      setLine(true);
+    };
+
+    au.addEventListener('play', () => { pauseOthers(au); sync(); });
+    au.addEventListener('pause', sync);
+    au.addEventListener('timeupdate', () => {
+      if (!cur || !au.duration) return;
+      const p = (au.currentTime / au.duration * 100) + '%';
+      $('.bar i', cur.li).style.width = p;
+      $m('.mp-bar i').style.width = p;
+      $('time', cur.li).textContent = fmt(au.duration - au.currentTime);
+      setLine();
+    });
+    au.addEventListener('ended', () => {
+      if (mode === 'shuffle') { shuffle(); return; }
+      $('.bar i', cur.li).style.width = '0';
+      $('time', cur.li).textContent = cur.total;
+      sync();
+    });
+
+    list.forEach((s) => {
+      $('.tp', s.li).addEventListener('click', () => play(s, 'list'));
+      $('.bar', s.li).addEventListener('click', (e) => { if (cur === s) seek(e, e.currentTarget); });
+    });
+    $m('.mp-fab').addEventListener('click', () => {
+      if (cur) { mp.dataset.state = 'open'; au.play().catch(() => {}); } else shuffle();
+    });
+    $m('.mp-pp').addEventListener('click', () => (au.paused ? au.play().catch(() => {}) : au.pause()));
+    $m('.mp-shuf').addEventListener('click', shuffle);
+    $m('.mp-bar').addEventListener('click', (e) => seek(e, e.currentTarget));
+    $m('.mp-x').addEventListener('click', () => { au.pause(); mp.dataset.state = 'idle'; });
   }
 
   /* ---------- 商业试稿 ---------- */
