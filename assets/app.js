@@ -63,7 +63,13 @@
   document.addEventListener('contextmenu', (e) => { if (guarded(e.target)) e.preventDefault(); });
   document.addEventListener('dragstart', (e) => { if (guarded(e.target)) e.preventDefault(); });
   document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') e.preventDefault(); });
-  document.addEventListener('play', (e) => { $$('video').forEach((v) => { if (v !== e.target) v.pause(); }); }, true);
+  // 同一时间只放一个：视频和试听互相暂停
+  const songs = new Set();
+  const pauseOthers = (keep) => {
+    $$('video').forEach((v) => { if (v !== keep) v.pause(); });
+    songs.forEach((a) => { if (a !== keep) a.pause(); });
+  };
+  document.addEventListener('play', (e) => pauseOthers(e.target), true);
 
   /* ---------- 大图查看 ---------- */
   const lb = $('#lb'), stage = $('#lb-stage'), cap = $('#lb-cap');
@@ -151,6 +157,36 @@
       v.src = await url(box.dataset.video);
       box.replaceChildren(v);
     }));
+
+    // 原创音乐试听
+    const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    $$('.track[data-audio]', app).forEach((li) => {
+      const btn = $('.tp', li), bar = $('.bar', li), fill = $('.bar i', li), time = $('time', li);
+      let au = null;
+      btn.addEventListener('click', async () => {
+        if (!au) {
+          li.classList.add('loading');
+          au = new Audio();
+          au.src = await url(li.dataset.audio);
+          li.classList.remove('loading');
+          songs.add(au);
+          au.addEventListener('timeupdate', () => {
+            fill.style.width = (au.currentTime / au.duration * 100 || 0) + '%';
+            if (au.duration) time.textContent = fmt(au.duration - au.currentTime);
+          });
+          au.addEventListener('play', () => { pauseOthers(au); li.classList.add('playing'); });
+          au.addEventListener('pause', () => li.classList.remove('playing'));
+          au.addEventListener('ended', () => { au.currentTime = 0; fill.style.width = '0'; time.textContent = '1:00'; });
+          track('试听', { 歌曲: $('b', li).textContent });
+        }
+        if (au.paused) au.play().catch(() => {}); else au.pause();
+      });
+      bar.addEventListener('click', (e) => {
+        if (!au || !au.duration) return;
+        const r = bar.getBoundingClientRect();
+        au.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * au.duration;
+      });
+    });
 
     // 大图：过程条带、案例主图、更多作品
     $$('.strip', app).forEach((strip) => {
